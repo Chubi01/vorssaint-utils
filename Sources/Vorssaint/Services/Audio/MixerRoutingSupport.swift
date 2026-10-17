@@ -356,14 +356,15 @@ enum MixerRoutingSupport {
         volume < 0.005
     }
 
-    /// Inactive apps with a custom volume or output remain visible so hiding
-    /// idle rows can never conceal a setting the user may want to undo.
+    /// Inactive apps with a custom volume, a mute or an output remain visible
+    /// so hiding idle rows can never conceal a setting the user may want to undo.
     static func shouldShowApp(isPlaying: Bool,
                               volume: Double,
+                              isMuted: Bool,
                               selectedOutputDeviceUID: String?,
                               hideInactiveApps: Bool) -> Bool {
         guard hideInactiveApps else { return true }
-        return isPlaying || !isUnity(volume) || selectedOutputDeviceUID != nil
+        return isPlaying || isMuted || !isUnity(volume) || selectedOutputDeviceUID != nil
     }
 
     /// Turns the text entered beside a mixer slider into its level. The field
@@ -535,13 +536,16 @@ enum MixerRoutingSupport {
     }
 
     /// The last gate before a tap is built: a row is tapped only when the user
-    /// adjusted its volume, chose its output, or asked to move all audio to an
-    /// output that this process did not follow. Merely listing an app never
-    /// makes it part of a tap.
+    /// adjusted its volume, muted it, chose its output, or asked to move all
+    /// audio to an output that this process did not follow. Merely listing an
+    /// app never makes it part of a tap. A mute needs the tap even at 100%:
+    /// the tap is what silences the app.
     static func rowMayBeTapped(savedVolume: Double?,
+                               savedMute: Bool,
                                savedRouteUID: String?,
                                defaultOutputDeviceUID: String?,
                                universalOutputRouteUID: String? = nil) -> Bool {
+        if savedMute { return true }
         if let savedVolume, !isUnity(savedVolume) { return true }
         if savedRouteUID != nil { return true }
         guard let universalOutputRouteUID else { return false }

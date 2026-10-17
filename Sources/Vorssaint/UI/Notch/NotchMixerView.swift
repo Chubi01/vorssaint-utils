@@ -35,7 +35,7 @@ struct NotchMixerView: View {
     /// The same order and the same hidden rows as the panel's list.
     private var apps: [MixerApp] {
         arrangement.ordered(mixer.apps, identity: { $0.persistenceID }).filter { app in
-            MixerRoutingSupport.shouldShowApp(isPlaying: app.isPlaying, volume: app.volume,
+            MixerRoutingSupport.shouldShowApp(isPlaying: app.isPlaying, volume: app.volume, isMuted: app.isMuted,
                                               selectedOutputDeviceUID: app.selectedOutputDeviceUID,
                                               hideInactiveApps: hideInactiveApps)
         }
@@ -495,7 +495,7 @@ private struct NotchAppFader: View {
     private var strings: MixerFeatureStrings { FeatureStrings.mixer(l10n.language) }
     private var percent: Int { MixerRoutingSupport.displayPercent(forVolume: app.volume) }
     private var boosting: Bool { percent > 100 }
-    private var muted: Bool { app.volume <= 0.001 }
+    private var muted: Bool { app.isMuted }
     private var routed: Bool { !app.isBypassed && app.selectedOutputDeviceUID != nil }
     private var routeDescription: String {
         if app.outputDeviceUnavailable { return l10n.s.mixerOutputFallback }

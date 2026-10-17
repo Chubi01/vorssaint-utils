@@ -402,6 +402,7 @@ struct MixerSection: View {
         arrangement.ordered(mixer.apps, identity: { $0.persistenceID }).filter { app in
             MixerRoutingSupport.shouldShowApp(isPlaying: app.isPlaying,
                                               volume: app.volume,
+                                              isMuted: app.isMuted,
                                               selectedOutputDeviceUID: app.selectedOutputDeviceUID,
                                               hideInactiveApps: hideInactiveApps)
         }
@@ -1009,9 +1010,9 @@ private struct MixerRow: View {
                         Button {
                             mixer.toggleMute(app)
                         } label: {
-                            Image(systemName: app.volume <= 0.001 ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                            Image(systemName: app.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
                                 .font(.system(size: 10))
-                                .foregroundStyle(app.volume <= 0.001
+                                .foregroundStyle(app.isMuted
                                                  ? PanelMetricColor.red(for: colorScheme)
                                                  : Color.secondary)
                                 .frame(width: 16)
