@@ -942,6 +942,40 @@ enum MixerRoutingSupport {
     }
 }
 
+extension MixerRoutingSupport {
+    /// The level a muted app played at while mutes were saved as volumes: a
+    /// saved volume at or below it migrates to a mute
+    /// (Defaults.migrateMutedAppVolumes).
+    static let legacyMuteThreshold: Double = 0.001
+
+    /// What an app plays at: nothing while muted, its level otherwise.
+    static func effectiveVolume(_ volume: Double, isMuted: Bool) -> Double {
+        isMuted ? 0 : volume
+    }
+
+    /// A row is muted when its key was saved as muted and it is not bypassed:
+    /// an app that manages its own audio is never muted, as its level stays at 100%.
+    static func rowIsMuted(savedMute: Bool, isBypassed: Bool) -> Bool {
+        savedMute && !isBypassed
+    }
+
+    /// The saved mutes as stored: sanitized persistence ids. Anything else in
+    /// the list (an old backup, a hand-edited plist) is dropped.
+    static func sanitizedMutedApps(_ raw: [Any]) -> Set<String> {
+        var sanitized = Set<String>()
+        for value in raw {
+            guard let text = value as? String, let appID = sanitizedAppID(text) else { continue }
+            sanitized.insert(appID)
+        }
+        return sanitized
+    }
+
+    /// "44%", or "44%, Muted" while muted: what VoiceOver reads for an app's level.
+    static func volumeAccessibilityValue(percent: Int, isMuted: Bool, mutedText: String) -> String {
+        isMuted ? "\(percent)%, \(mutedText)" : "\(percent)%"
+    }
+}
+
 /// Presentation preferences use the same lasting identity as saved volumes.
 /// Missing apps retain their slots; refreshing audio never rewrites this list.
 struct MixerAppArrangement: Codable, Equatable {
