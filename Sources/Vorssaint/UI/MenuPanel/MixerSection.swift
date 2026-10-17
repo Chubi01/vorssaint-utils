@@ -971,7 +971,11 @@ private struct MixerRow: View {
                                           accentRevision: accentRevision,
                                           glassEnabled: glassEnabled,
                                           maximum: AppVolumeMixer.maxVolume,
-                                          accessibilityLabel: app.name)
+                                          accessibilityLabel: app.name,
+                                          accessibilityValueText: MixerRoutingSupport.volumeAccessibilityValue(
+                                              percent: MixerRoutingSupport.displayPercent(forVolume: app.volume),
+                                              isMuted: app.isMuted,
+                                              mutedText: l10n.s.mixerMutedValue))
 
                         EditableVolumePercent(currentPercent: MixerRoutingSupport.displayPercent(forVolume: app.volume),
                                               maximumPercent: Int(AppVolumeMixer.maxVolume * 100),
@@ -1018,6 +1022,7 @@ private struct MixerRow: View {
                                 .frame(width: 16)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel(app.isMuted ? l10n.s.actionUnmute : l10n.s.actionMute)
                     }
 
                     if app.outputDeviceUnavailable {
@@ -1352,6 +1357,8 @@ private struct MixerVolumeSlider: View {
     let glassEnabled: Bool
     let maximum: Double
     let accessibilityLabel: String
+    /// What VoiceOver reads as the level; nil reads the percentage alone.
+    var accessibilityValueText: String? = nil
 
     private var activeTint: Color { isBoosting ? boostTint : normalTint }
     private var percentage: Int { MixerRoutingSupport.displayPercent(forVolume: value) }
@@ -1364,16 +1371,17 @@ private struct MixerVolumeSlider: View {
                                        tint: activeTint,
                                        isBoosting: isBoosting,
                                        maximum: maximum,
-                                       accessibilityLabel: accessibilityLabel)
+                                       accessibilityLabel: accessibilityLabel,
+                                       accessibilityValueText: accessibilityValueText)
             } else {
                 nativeSlider
                     .accessibilityLabel(accessibilityLabel)
-                    .accessibilityValue("\(percentage)%")
+                    .accessibilityValue(accessibilityValueText ?? "\(percentage)%")
             }
 #else
             nativeSlider
                 .accessibilityLabel(accessibilityLabel)
-                .accessibilityValue("\(percentage)%")
+                .accessibilityValue(accessibilityValueText ?? "\(percentage)%")
 #endif
         }
     }
@@ -1397,6 +1405,7 @@ private struct LiquidGlassMixerSlider: View {
     let isBoosting: Bool
     let maximum: Double
     let accessibilityLabel: String
+    var accessibilityValueText: String? = nil
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorScheme) private var colorScheme
 
@@ -1439,7 +1448,7 @@ private struct LiquidGlassMixerSlider: View {
         }
         .frame(height: knobHeight)
         .accessibilityLabel(accessibilityLabel)
-        .accessibilityValue("\(MixerRoutingSupport.displayPercent(forVolume: value))%")
+        .accessibilityValue(accessibilityValueText ?? "\(MixerRoutingSupport.displayPercent(forVolume: value))%")
         .accessibilityAdjustableAction { direction in
             switch direction {
             case .increment:

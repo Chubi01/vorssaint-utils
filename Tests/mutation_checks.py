@@ -1637,6 +1637,16 @@ MUTATIONS = [
      "            apps[index].volume = clamped\n",
      "            apps[index].volume = clamped\n            apps[index].isMuted = clamped <= 0.001\n",
      "turning an app down to 0% silences it without muting it"),
+    ("a language lacks the muted text", "localization",
+     "Sources/Vorssaint/Core/Localizations/Strings+German.swift",
+     "        mixerMutedValue: \"Stummgeschaltet\",",
+     "        mixerMutedValue: \"\",",
+     "strings/de: missing text in mixerMutedValue"),
+    ("English VoiceOver calls a muted app Mute", "mixer",
+     "Sources/Vorssaint/Core/Localization.swift",
+     "        mixerMutedValue: \"Muted\",",
+     "        mixerMutedValue: \"Mute\",",
+     "VoiceOver reads 44%, Muted in English and 44%, Silenciada in Spanish"),
 ]
 
 

@@ -89,6 +89,11 @@ enum MixerFeatureTests {
         suite.expect(MixerRoutingSupport.volumeAccessibilityValue(percent: 44, isMuted: false, mutedText: "Muted") == "44%"
                      && MixerRoutingSupport.volumeAccessibilityValue(percent: 0, isMuted: false, mutedText: "Muted") == "0%",
                      "an app that is not muted reads only its level, even at 0%")
+        suite.expect(MixerRoutingSupport.volumeAccessibilityValue(percent: 44, isMuted: true,
+                                                                  mutedText: Strings.enUS.mixerMutedValue) == "44%, Muted"
+                     && MixerRoutingSupport.volumeAccessibilityValue(percent: 44, isMuted: true,
+                                                                     mutedText: Strings.es.mixerMutedValue) == "44%, Silenciada",
+                     "VoiceOver reads 44%, Muted in English and 44%, Silenciada in Spanish")
         suite.expect(SettingsBackupSupport.exportKeys().isSuperset(of: [DefaultsKey.appMutes,
                                                                         DefaultsKey.appMutesAreSeparate]),
                      "saved mutes and their format travel with the volumes in a backup")
