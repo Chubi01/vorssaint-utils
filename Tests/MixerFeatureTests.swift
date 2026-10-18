@@ -97,6 +97,11 @@ enum MixerFeatureTests {
         suite.expect(SettingsBackupSupport.exportKeys().isSuperset(of: [DefaultsKey.appMutes,
                                                                         DefaultsKey.appMutesAreSeparate]),
                      "saved mutes and their format travel with the volumes in a backup")
+        suite.expect((Defaults.registeredDefaults[DefaultsKey.appMutesAreSeparate] as? Bool) == false
+                     && SettingsBackupSupport.valueLooksRight(DefaultsKey.appMutesAreSeparate, true)
+                     && !SettingsBackupSupport.valueLooksRight(DefaultsKey.appMutesAreSeparate, "true")
+                     && !SettingsBackupSupport.valueLooksRight(DefaultsKey.appMutesAreSeparate, 1),
+                     "an imported mute marker must be a boolean, so an edited backup cannot skip the migration")
         let jumpSuite = "vorss.tests.mixer.mutejump"
         if let jumpDefaults = UserDefaults(suiteName: jumpSuite) {
             jumpDefaults.removePersistentDomain(forName: jumpSuite)
