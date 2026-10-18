@@ -143,6 +143,26 @@ enum MixerFeatureTests {
             Defaults.migrateMutedAppVolumes(in: muteDefaults)
             suite.expect(savedMutes().contains("com.example.restored") && savedVolumes().isEmpty,
                          "a backup restored from before the change has its mutes moved on the next launch")
+            // A new install has nothing to move, but the update still counts as done.
+            muteDefaults.removePersistentDomain(forName: muteSuite)
+            Defaults.migrateMutedAppVolumes(in: muteDefaults)
+            muteDefaults.set(["com.example.later": 0.0], forKey: DefaultsKey.appVolumes)
+            Defaults.migrateMutedAppVolumes(in: muteDefaults)
+            suite.expect(savedVolumes()["com.example.later"] == 0 && !savedMutes().contains("com.example.later"),
+                         "on a new install, a level set to 0% before the first relaunch stays a level")
+            muteDefaults.removePersistentDomain(forName: muteSuite)
+            muteDefaults.set(["com.example.quiet": 0.0011, "com.example.loud": 0.44], forKey: DefaultsKey.appVolumes)
+            Defaults.migrateMutedAppVolumes(in: muteDefaults)
+            suite.expect(muteDefaults.object(forKey: DefaultsKey.appMutes) == nil,
+                         "an update with no level to move leaves no mute list behind")
+            // Eight ids: a Set's order changes with every process, and four unsorted ones would pass by chance.
+            muteDefaults.removePersistentDomain(forName: muteSuite)
+            let eightIDs = ["com.example.h", "com.example.c", "com.example.f", "com.example.a",
+                            "com.example.g", "com.example.b", "com.example.e", "com.example.d"]
+            muteDefaults.set(Dictionary(uniqueKeysWithValues: eightIDs.map { ($0, 0.0) }), forKey: DefaultsKey.appVolumes)
+            Defaults.migrateMutedAppVolumes(in: muteDefaults)
+            suite.expect((muteDefaults.array(forKey: DefaultsKey.appMutes) as? [String]) == eightIDs.sorted(),
+                         "the saved mute list is a sorted list of ids")
             muteDefaults.removePersistentDomain(forName: muteSuite)
         }
         suite.expectClose(MixerRoutingSupport.volumeFraction(fromPercentageText: "40",
@@ -870,6 +890,13 @@ enum MixerFeatureTests {
                      && !unspacedMixerCode.contains("gain(forVolume:latestApp.volume)")
                      && !unspacedMixerCode.contains("volume:app.volume,"),
                      "no engine plays a muted app at its saved level")
+        // The suite compiles the mute rules but not the code that feeds them a refresh:
+        // the snapshot read, the refresh request, the end of a session and the Finder row.
+        suite.expect(mixerCode.contains("session: request.sessionMutes),")
+                     && mixerCode.contains("            sessionMutes: sessionMutes,\n")
+                     && mixerCode.contains("        sessionMutes.removeAll()\n")
+                     && mixerCode.contains("isMuted: request.savedMutes.contains(id)"),
+                     "saved and session mutes reach every refresh, end with the session and mute the Finder row")
         let levelWatch = mixerCode.range(of: "final class LevelCompensationWatch")
             .flatMap { start in
                 mixerCode.range(of: "\n}\n", range: start.upperBound..<mixerCode.endIndex)
