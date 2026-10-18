@@ -101,7 +101,7 @@ enum MixerFeatureTests {
                      && SettingsBackupSupport.valueLooksRight(DefaultsKey.appMutesAreSeparate, true)
                      && !SettingsBackupSupport.valueLooksRight(DefaultsKey.appMutesAreSeparate, "true")
                      && !SettingsBackupSupport.valueLooksRight(DefaultsKey.appMutesAreSeparate, 1),
-                     "an imported mute marker must be a boolean, so an edited backup cannot skip the migration")
+                     "an imported mute marker must be a boolean, so the text \"true\" or 1 cannot skip the migration")
         let jumpSuite = "vorss.tests.mixer.mutejump"
         if let jumpDefaults = UserDefaults(suiteName: jumpSuite) {
             jumpDefaults.removePersistentDomain(forName: jumpSuite)
@@ -114,7 +114,7 @@ enum MixerFeatureTests {
             let jumpMutes = MixerRoutingSupport.sanitizedMutedApps(jumpDefaults.array(forKey: DefaultsKey.appMutes) ?? [])
             suite.expect(jumpMutes == ["com.example.silent"]
                          && abs((jumpVolumes["com.example.faint"] ?? -1) - 0.002) < 1e-9,
-                         "an update from before the loudness curve mutes only what was muted then")
+                         "an update from before the loudness curve converts gains, then mutes positions up to 0.001")
             jumpDefaults.removePersistentDomain(forName: jumpSuite)
         }
         let defaultsCode = (try? String(contentsOfFile: "Sources/Vorssaint/Core/Defaults.swift", encoding: .utf8)) ?? ""
