@@ -31,8 +31,12 @@ enum MixerUniversalRoutingContract {
     final class Preferences {
         static let standard = Preferences()
         var values: [String: String] = [:]
+        var lists: [String: [String]] = [:]
         func string(forKey key: String) -> String? { values[key] }
         func set(_ value: String?, forKey key: String) { values[key] = value }
+        func array(forKey key: String) -> [Any]? { lists[key] }
+        func set(_ value: [String], forKey key: String) { lists[key] = value }
+        func removeObject(forKey key: String) { values[key] = nil; lists[key] = nil }
     }
 
     final class Mixer {
@@ -63,7 +67,6 @@ enum MixerUniversalRoutingContract {
         var volumes: [String: Double] = [:]
         var sessionRoutes: [String: String] = [:]
         var sessionVolumes: [String: Double] = [:]
-        var mutes: Set<String> = []
         var sessionMutes: Set<String> = []
         var volumeWrites: [Double] = []
         var reconciled = 0
@@ -76,16 +79,6 @@ enum MixerUniversalRoutingContract {
         func refreshApps() { refreshCount += 1 }
         func savedOutputDeviceUIDs() -> [String: String] { savedRoutes }
         func savedVolumes() -> [String: Double] { volumes }
-        func savedMutes() -> Set<String> { mutes }
-        func persistMute(_ isMuted: Bool, for app: MixerApp) {
-            if let key = app.persistenceID {
-                if isMuted { mutes.insert(key) } else { mutes.remove(key) }
-            } else if isMuted {
-                sessionMutes.insert(app.id)
-            } else {
-                sessionMutes.remove(app.id)
-            }
-        }
         func persistVolume(_ volume: Double, for app: MixerApp) {
             volumeWrites.append(volume)
             if let key = app.persistenceID { volumes[key] = volume } else { sessionVolumes[app.id] = volume }
@@ -282,38 +275,43 @@ enum MixerUniversalRoutingContract {
         muteCases(suite)
     }
 
-    /// The mute is a flag of its own: the real `toggleMute`, `setVolume` and
-    /// `storedMute` bodies against the fake's saved and session mutes.
+    /// The mute is a flag of its own: the real `toggleMute`, `setVolume`,
+    /// `storedMute`, `savedMutes` and `persistMute` bodies against fake preferences.
     static func muteCases(_ suite: TestSuite) {
+        // Every mixer shares the one fake preferences object, so each case starts it empty.
+        func fresh() -> Mixer {
+            Preferences.standard.lists = [:]
+            return Mixer()
+        }
         let player = row("com.example.Player", objects: [200], persistenceID: "com.example.Player")
 
-        let muting = Mixer()
+        let muting = fresh()
         muting.apps = [player]
         muting.toggleMute(player)
         suite.expect(muting.apps[0].isMuted && muting.apps[0].volume == 1
-                     && muting.volumeWrites.isEmpty && muting.mutes == ["com.example.Player"],
+                     && muting.volumeWrites.isEmpty && muting.savedMutes() == ["com.example.Player"],
                      "muting keeps the app's level and saves the mute under its persistence id")
         suite.expect(muting.tappedWhenRouted == [true] && muting.applied.last?.isMuted == true
                      && muting.appNeedsEngine(muting.apps[0]) && muting.reconciled == 1,
                      "a muted app at 100% with no route is routed into a tap, with its mute already saved")
         muting.toggleMute(muting.apps[0])
-        suite.expect(!muting.apps[0].isMuted && muting.mutes.isEmpty && muting.tappedWhenRouted == [true, false]
+        suite.expect(!muting.apps[0].isMuted && muting.savedMutes().isEmpty && muting.tappedWhenRouted == [true, false]
                      && !muting.appNeedsEngine(muting.apps[0]) && !muting.rowMayBeTapped(muting.apps[0]),
                      "unmuting an app at 100% with no route hands it back to untouched output")
 
-        let stale = Mixer()
+        let stale = fresh()
         stale.apps = [player]
         stale.toggleMute(player)   // muted from the other view
         stale.toggleMute(player)   // a click on the copy drawn before that
-        suite.expect(!stale.apps[0].isMuted && stale.mutes.isEmpty && stale.tappedWhenRouted == [true, false],
+        suite.expect(!stale.apps[0].isMuted && stale.savedMutes().isEmpty && stale.tappedWhenRouted == [true, false],
                      "a click on a copy drawn before the row changed toggles the live row, not the copy")
 
-        let quit = Mixer()
+        let quit = fresh()
         quit.toggleMute(player)
-        suite.expect(quit.mutes == ["com.example.Player"] && quit.applied.last?.isMuted == true && quit.apps.isEmpty,
+        suite.expect(quit.savedMutes() == ["com.example.Player"] && quit.applied.last?.isMuted == true && quit.apps.isEmpty,
                      "muting an app that just left the list saves the mute for its next launch")
 
-        let recovering = Mixer()
+        let recovering = fresh()
         recovering.apps = [player]
         let configuration = MixerEngineRecovery.Configuration(objects: player.audioObjects,
                                                               outputDeviceUID: "airpods")
@@ -325,7 +323,7 @@ enum MixerUniversalRoutingContract {
                      "muting gives an app whose tap was given up another build, so a red speaker never plays")
 
         let unnamed = row("process:91", objects: [300], persistenceID: nil)
-        let session = Mixer()
+        let session = fresh()
         session.apps = [unnamed]
         session.toggleMute(unnamed)
         suite.expect(session.apps[0].isMuted && session.rowMayBeTapped(session.apps[0])
@@ -337,23 +335,43 @@ enum MixerUniversalRoutingContract {
                      && Mixer.storedMute(for: MixerRowIdentity(rowID: "process:93", persistenceID: "Other Game"),
                                          saved: ["Other Game"], session: []),
                      "a process without a persistent identity stays muted through the next refresh, by row and only for this session")
+        suite.expect(session.savedMutes().isEmpty && Preferences.standard.lists.isEmpty,
+                     "a session mute is never written down")
+        session.toggleMute(session.apps[0])
+        suite.expect(!session.apps[0].isMuted && session.sessionMutes.isEmpty
+                     && !Mixer.storedMute(for: unnamed.identity, saved: [], session: session.sessionMutes),
+                     "unmuting a process without a persistent identity ends its session mute")
 
-        let level = Mixer()
+        let storage = fresh()
+        // Eight ids: a Set's order changes with every process, and a few unsorted ones would pass by chance.
+        let ids = ["com.example.h", "com.example.c", "com.example.f", "com.example.a",
+                   "com.example.g", "com.example.b", "com.example.e", "com.example.d"]
+        for id in ids { storage.persistMute(true, for: row(id, persistenceID: id)) }
+        suite.expect(Preferences.standard.lists[DefaultsKey.appMutes] == ids.sorted(),
+                     "the saved mutes are a sorted list of persistence ids")
+        storage.persistMute(false, for: row(ids[0], persistenceID: ids[0]))
+        suite.expect(storage.savedMutes() == Set(ids.dropFirst()),
+                     "unmuting one app leaves the other saved mutes alone")
+        for id in ids { storage.persistMute(false, for: row(id, persistenceID: id)) }
+        suite.expect(Preferences.standard.lists[DefaultsKey.appMutes] == nil && storage.savedMutes().isEmpty,
+                     "the saved list goes away when no app is muted")
+
+        let level = fresh()
         level.apps = [player]
         level.setVolume(0, for: player)
-        suite.expect(level.apps[0].volume == 0 && !level.apps[0].isMuted && level.mutes.isEmpty,
+        suite.expect(level.apps[0].volume == 0 && !level.apps[0].isMuted && level.savedMutes().isEmpty,
                      "turning an app down to 0% silences it without muting it")
         level.toggleMute(level.apps[0])
         suite.expect(level.apps[0].isMuted && level.apps[0].volume == 0 && level.volumeWrites == [0],
                      "a click on the speaker of an app at 0% mutes it and leaves the level at 0%")
         level.setVolume(0.5, for: level.apps[0])
-        suite.expect(level.apps[0].isMuted && level.apps[0].volume == 0.5 && level.mutes == ["com.example.Player"]
+        suite.expect(level.apps[0].isMuted && level.apps[0].volume == 0.5 && level.savedMutes() == ["com.example.Player"]
                      && level.effectiveVolume(of: level.apps[0]) == 0,
                      "moving a muted app's level keeps it muted")
 
         var loud = row("com.example.Loud", objects: [400], persistenceID: "com.example.Loud")
         loud.volume = 1.5
-        let boost = Mixer()
+        let boost = fresh()
         boost.apps = [loud]
         boost.toggleMute(loud)
         let silenced = boost.effectiveVolume(of: boost.apps[0]) == 0
@@ -363,10 +381,10 @@ enum MixerUniversalRoutingContract {
                      "a boosted app goes fully silent when muted and comes back boosted, never through 100%")
 
         let zoom = row("us.zoom.xos", objects: [500], persistenceID: "us.zoom.xos", bypassed: true)
-        let conference = Mixer()
+        let conference = fresh()
         conference.apps = [zoom]
         conference.toggleMute(zoom)
-        suite.expect(!conference.apps[0].isMuted && conference.mutes.isEmpty && conference.applied.isEmpty,
+        suite.expect(!conference.apps[0].isMuted && conference.savedMutes().isEmpty && conference.applied.isEmpty,
                      "muting an app that manages its own audio does nothing")
         let merged = Mixer.coalescingAppsWithDuplicateIDs([row(muted: true), row(objects: [101])])
         let mergedBypass = Mixer.coalescingAppsWithDuplicateIDs([row(objects: [101], muted: true), row(bypassed: true)])
