@@ -346,13 +346,13 @@ enum MixerUniversalRoutingContract {
         // Eight ids: a Set's order changes with every process, and a few unsorted ones would pass by chance.
         let ids = ["com.example.h", "com.example.c", "com.example.f", "com.example.a",
                    "com.example.g", "com.example.b", "com.example.e", "com.example.d"]
-        for id in ids { storage.persistMute(true, for: row(id, persistenceID: id)) }
+        for id in ids { storage.persistMute(true, for: row("process:" + id, persistenceID: id)) }
         suite.expect(Preferences.standard.lists[DefaultsKey.appMutes] == ids.sorted(),
                      "the saved mutes are a sorted list of persistence ids")
-        storage.persistMute(false, for: row(ids[0], persistenceID: ids[0]))
+        storage.persistMute(false, for: row("process:" + ids[0], persistenceID: ids[0]))
         suite.expect(storage.savedMutes() == Set(ids.dropFirst()),
                      "unmuting one app leaves the other saved mutes alone")
-        for id in ids { storage.persistMute(false, for: row(id, persistenceID: id)) }
+        for id in ids { storage.persistMute(false, for: row("process:" + id, persistenceID: id)) }
         suite.expect(Preferences.standard.lists[DefaultsKey.appMutes] == nil && storage.savedMutes().isEmpty,
                      "the saved list goes away when no app is muted")
 
