@@ -1368,8 +1368,8 @@ final class AppVolumeMixer: ObservableObject {
             subscribeToRunningChanges(of: object)
         }
 
-        // The pass resolved volumes from a copy captured when it was requested,
-        // and a write made while it read the HAL is newer than that copy.
+        // The pass resolved volumes and mutes from a copy captured when it was
+        // requested, and a write made while it read the HAL is newer than that copy.
         let next = applyingCurrentVolumes(to: readApps)
         guard audioEnvironmentChanged || next != apps else { return }
         if apps != next {
@@ -2003,15 +2003,19 @@ final class AppVolumeMixer: ObservableObject {
         Self.storedMute(for: identity, saved: saved, session: sessionMutes)
     }
 
-    /// Main thread. A refresh pass resolves volumes from the copy it captured
-    /// when it was requested, and `setVolume` can write while the pass is still
-    /// reading the HAL. Resolving them again at publish time keeps that newer
-    /// write from being reverted; everything else in a row stays as read.
+    /// Main thread. A refresh pass resolves volumes and mutes from the copy it
+    /// captured when it was requested, and `setVolume` or `toggleMute` can write
+    /// while the pass is still reading the HAL. Resolving them again at publish
+    /// time keeps that newer write from being reverted; everything else in a row
+    /// stays as read.
     private func applyingCurrentVolumes(to rows: [MixerApp]) -> [MixerApp] {
         let saved = savedVolumes()
+        let mutes = savedMutes()
         return rows.map { row in
             var row = row
             row.volume = row.isBypassed ? 1 : (storedVolume(for: row.identity, saved: saved) ?? 1)
+            row.isMuted = MixerRoutingSupport.rowIsMuted(savedMute: storedMute(for: row.identity, saved: mutes),
+                                                         isBypassed: row.isBypassed)
             return row
         }
     }

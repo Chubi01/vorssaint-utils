@@ -272,6 +272,32 @@ enum MixerUniversalRoutingContract {
         publishing.volumes.removeValue(forKey: "com.google.Chrome")
         suite.expect(publishing.applyingCurrentVolumes(to: read)[0].volume == 1,
                      "a volume returned to 100 percent while the pass read publishes as unity, not the old gain")
+
+        // The same goes for a mute: one written while the pass read the HAL is not
+        // reverted, a mute still saved stays, and a bypassed row is never muted,
+        // whatever is saved under its key.
+        publishing.volumes["com.google.Chrome"] = 0.835
+        publishing.sessionVolumes["process:88"] = 0.9
+        Preferences.standard.lists = [:]
+        publishing.sessionMutes = ["process:88"]
+        var steady = read
+        steady[0].isMuted = true
+        steady[1].isMuted = true
+        publishing.persistMute(true, for: chrome)
+        suite.expect(publishing.applyingCurrentVolumes(to: steady) == steady,
+                     "publishing a mute that is still saved keeps the row muted, a bypassed one never")
+        suite.expect(publishing.applyingCurrentVolumes(to: read) == steady,
+                     "a mute written while the pass read the HAL replaces the state captured at request time")
+        publishing.persistMute(true, for: zoom)
+        suite.expect(publishing.applyingCurrentVolumes(to: read) == steady,
+                     "a bypassed row stays unmuted whatever is saved under its key")
+        publishing.persistMute(false, for: zoom)
+        publishing.persistMute(false, for: chrome)
+        publishing.sessionMutes = []
+        suite.expect(publishing.applyingCurrentVolumes(to: steady) == read,
+                     "an unmute written while the pass read the HAL is not reverted either")
+        Preferences.standard.lists = [:]
+
         muteCases(suite)
     }
 

@@ -1285,6 +1285,21 @@ MUTATIONS = [
      "            row.volume = row.isBypassed ? 1\n"
      "                : (row.persistenceID == nil ? row.volume : (storedVolume(for: row.identity, saved: saved) ?? 1))\n",
      "a volume written while the pass read the HAL replaces the one captured at request time, and nothing else changes"),
+    ("a refresh pass drops a mute written while it read", "mixer",
+     "Sources/Vorssaint/Services/Audio/AppVolumeMixer.swift",
+     "savedMute: storedMute(for: row.identity, saved: mutes),",
+     "savedMute: row.isMuted && storedMute(for: row.identity, saved: mutes),",
+     "a mute written while the pass read the HAL replaces the state captured at request time"),
+    ("a refresh pass reverts an unmute written while it read", "mixer",
+     "Sources/Vorssaint/Services/Audio/AppVolumeMixer.swift",
+     "savedMute: storedMute(for: row.identity, saved: mutes),",
+     "savedMute: row.isMuted || storedMute(for: row.identity, saved: mutes),",
+     "an unmute written while the pass read the HAL is not reverted either"),
+    ("a row without a persistence key publishes the mute the pass captured", "mixer",
+     "Sources/Vorssaint/Services/Audio/AppVolumeMixer.swift",
+     "savedMute: storedMute(for: row.identity, saved: mutes),",
+     "savedMute: Self.storedMute(for: row.identity, saved: mutes, session: []),",
+     "a mute written while the pass read the HAL replaces the state captured at request time"),
     ("hover hands focus between a window and its own suggestion list", "pointer-input",
      "Sources/Vorssaint/Services/FocusFollowsMouse/FocusFollowsMouseSupport.swift",
      "            && !focusedWindowSharesRoot\n", "\n",
@@ -1607,6 +1622,12 @@ MUTATIONS = [
      "            apps[index].volume = clamped\n",
      "            apps[index].volume = clamped\n            apps[index].isMuted = clamped <= 0.001\n",
      "turning an app down to 0% silences it without muting it"),
+    ("a bypassed row publishes the mute saved under its key", "mixer",
+     "Sources/Vorssaint/Services/Audio/AppVolumeMixer.swift",
+     "            row.isMuted = MixerRoutingSupport.rowIsMuted(savedMute: storedMute(for: row.identity, saved: mutes),\n"
+     "                                                         isBypassed: row.isBypassed)\n",
+     "            row.isMuted = storedMute(for: row.identity, saved: mutes)\n",
+     "a bypassed row stays unmuted whatever is saved under its key"),
 ]
 
 
