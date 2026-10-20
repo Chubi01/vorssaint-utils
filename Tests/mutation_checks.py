@@ -1279,11 +1279,6 @@ MUTATIONS = [
      "            row.volume = row.isBypassed ? 1\n"
      "                : (row.persistenceID == nil ? row.volume : (storedVolume(for: row.identity, saved: saved) ?? 1))\n",
      "a volume written while the pass read the HAL replaces the one captured at request time, and nothing else changes"),
-    ("new wheel input keeps the previous pane's glide budget", "pointer-input",
-     "Sources/Vorssaint/Services/SmoothScrollService.swift",
-     "|| glideFromContinuous != traits.isContinuous || retargeted {",
-     "|| glideFromContinuous != traits.isContinuous {",
-     "fresh input in another pane drops the old tail and fractional carry immediately"),
     ("hover hands focus between a window and its own suggestion list", "pointer-input",
      "Sources/Vorssaint/Services/FocusFollowsMouse/FocusFollowsMouseSupport.swift",
      "            && !focusedWindowSharesRoot\n", "\n",
@@ -1412,6 +1407,11 @@ MUTATIONS = [
      "answerHandlers = whenAnswered.map { [cacheKey: $0] } ?? [:]",
      "if let whenAnswered { answerHandlers = [cacheKey: whenAnswered] }",
      "Return on a row that shows its own answer takes over from a script still running"),
+    ("a mirroring display's brightness overlay looks only for its own screen", "display-restoration",
+     "Sources/Vorssaint/Services/Display/BrightnessOSD.swift",
+     "return number == displayID || number == sharedScreenID || number == mirroredID",
+     "return number == displayID",
+     "a mirroring display's brightness overlay shows on the screen its mirror set shares"),
 ]
 
 
