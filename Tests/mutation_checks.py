@@ -1628,6 +1628,21 @@ MUTATIONS = [
      "                                                         isBypassed: row.isBypassed)\n",
      "            row.isMuted = storedMute(for: row.identity, saved: mutes)\n",
      "a bypassed row stays unmuted whatever is saved under its key"),
+    ("quit protection keeps native switcher ownership after a click ends it", "quit-protection",
+     "Sources/Vorssaint/Services/QuitProtection/QuitProtectionService.swift",
+     "        // a click on one of its icons ends it with Command still held.\n        nativeSwitcherSessionActive = false\n",
+     "        // a click on one of its icons ends it with Command still held.\n",
+     "an app activated while Command stays held ends native switcher ownership"),
+    ("saved GIFs are readable only by their owner", "recorder",
+     "Sources/Vorssaint/Services/Recorder/RecorderGIFWriter.swift",
+     "        guard FileManager.default.createFile(atPath: url.path, contents: nil) else {\n",
+     "        guard FileManager.default.createFile(atPath: url.path, contents: nil,\n"
+     "                                            attributes: [.posixPermissions: 0o600]) else {\n",
+     "a saved GIF gets the same permissions as any other saved file"),
+    ("a backup carries app volumes as slider positions", "mixer",
+     "Sources/Vorssaint/Core/SettingsBackupSupport.swift",
+     "        settings = exportedAppVolumes(settings)\n", "",
+     "a backup saves app volumes as the gains 3.4.1 plays, at the same loudness"),
 ]
 
 
