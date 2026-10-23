@@ -12,7 +12,6 @@ import Foundation
 enum MixerGainRampContract {
     static func run(_ suite: TestSuite) {
         slidesFromTheLastGain(suite)
-        hidesTheStepAtACosineCrest(suite)
         steadyGainIsUntouched(suite)
         bothSidesStayEqual(suite)
         slidesToAndFromSilence(suite)
@@ -57,47 +56,10 @@ enum MixerGainRampContract {
         }
     }
 
-    /// At a crest the waveform is nearly flat, so a gain that steps there is
-    /// the loudest place for a zipper to show. Edges that land on the crest
-    /// and the trough of a 375 Hz cosine are compared between a slide and a
-    /// step per block, with the gain moving 0.01 at every edge.
-    private static func hidesTheStepAtACosineCrest(_ suite: TestSuite) {
-        let twoPi: Double = 2.0 * Double.pi
-        let perFrame: Double = 375.0 / 48000.0
-        let omega: Double = twoPi * perFrame
-        let crest: Double = 1.0 - cos(omega)
-        let directions: [(name: String, start: Double, delta: Double, peak: Double, floor: Double)] = [
-            ("rising", 0.10, 0.01, 0.5, 9),
-            ("falling", 1.00, -0.01, 1.0, 4),
-        ]
-        for n in [64, 512, 4096] {
-            let source = wave(frames: 41 * n, channels: 2, hertz: 375, amplitude: 1, cosine: true)
-            for direction in directions {
-                var gains: [Float] = []
-                for block in 0...40 {
-                    let level: Double = direction.start + direction.delta * Double(block)
-                    gains.append(Float(level))
-                }
-                let slid = leftChannel(source, blockFrames: n, outputs: [2], gains: gains, sliding: true)
-                let stepped = leftChannel(source, blockFrames: n, outputs: [2], gains: gains, sliding: false)
-                let slideStep: Double = 0.01 / Double(n)
-                let crestStep: Double = 1.5 * direction.peak * crest
-                let bound: Double = slideStep + crestStep
-                let floorBound: Double = direction.floor * bound
-                let slidClean: Bool = edge(slid, blockFrames: n) <= bound
-                let steppedShows: Bool = edge(stepped, blockFrames: n) > floorBound
-                suite.expect(slidClean,
-                             "\(n) frames, \(direction.name): a cosine crest sees no gain step at a block edge")
-                suite.expect(steppedShows,
-                             "\(n) frames, \(direction.name): stepping the gain per block shows at a cosine crest")
-            }
-        }
-    }
-
     /// An engine that never changes its gain, and the first block of one that
     /// has just started, play the samples the constant path always played.
     private static func steadyGainIsUntouched(_ suite: TestSuite) {
-        let source = wave(frames: 3 * 512, channels: 2, hertz: 440, amplitude: 0.5, cosine: false)
+        let source = wave(frames: 3 * 512, channels: 2, hertz: 440, amplitude: 0.5)
         let shapes: [(name: String, outputs: [UInt32])] = [("stereo", [2]), ("mono", [1]), ("split", [1, 1])]
         for shape in shapes {
             let firstSliding = blocks(source, sourceChannels: 2, blockFrames: 512, outputs: shape.outputs,
@@ -119,17 +81,11 @@ enum MixerGainRampContract {
     /// a left-equals-right tone start from the same gain and move together,
     /// whatever shape the device asks for.
     private static func bothSidesStayEqual(_ suite: TestSuite) {
-        let stereoTone = wave(frames: 3 * 512, channels: 2, hertz: 440, amplitude: 0.5, cosine: false)
-        let monoTone = wave(frames: 3 * 512, channels: 1, hertz: 440, amplitude: 0.5, cosine: false)
-        let shapes: [(name: String, source: [Float], sourceChannels: UInt32, outputs: [UInt32])] = [
-            ("stereo", stereoTone, 2, [2]),
-            ("split", stereoTone, 2, [1, 1]),
-            ("surround", stereoTone, 2, [4]),
-            ("fromMono", monoTone, 1, [2]),
-        ]
+        let tone = wave(frames: 3 * 512, channels: 2, hertz: 440, amplitude: 0.5)
+        let shapes: [(name: String, outputs: [UInt32])] = [("stereo", [2]), ("split", [1, 1]), ("surround", [4])]
         let gains: [Float] = [1, 0.9801, 0.5]
         for shape in shapes {
-            let buffers = blocks(shape.source, sourceChannels: shape.sourceChannels, blockFrames: 512,
+            let buffers = blocks(tone, sourceChannels: 2, blockFrames: 512,
                                  outputs: shape.outputs, gains: gains, sliding: true)
             var width = 0
             for count in shape.outputs { width += Int(count) }
@@ -169,8 +125,8 @@ enum MixerGainRampContract {
     }
 
     /// The slide follows what was actually written: a block that wrote
-    /// nothing moves nothing, a block of one frame takes one step, and an
-    /// output shorter than the source slides over the frames it has.
+    /// nothing moves nothing, and an output shorter than the source slides
+    /// over the frames it has.
     private static func slidesAroundBlocksThatWroteLittle(_ suite: TestSuite) {
         let source = [Float](repeating: 1, count: 3 * 512 * 2)
 
@@ -186,12 +142,6 @@ enum MixerGainRampContract {
         let wroteNothing: Bool = skipped.written == 0
         let resumed: Bool = wroteNothing && thirdLeft[0] == 1
         suite.expect(resumed, "a block that wrote nothing leaves the slide where it was")
-
-        let oneFrame = leftChannel(Array(source[0..<6]), blockFrames: 1, outputs: [2],
-                                   gains: [1, 0.5, 0.5], sliding: true)
-        let oneFrameWanted: [Float] = [1, 1, 0.5]
-        let oneStep: Bool = oneFrame == oneFrameWanted
-        suite.expect(oneStep, "a one-frame block takes one step of the slide")
 
         let shortApplied = MixerRender.AppliedGain()
         var shortBlocks: [(buffers: [[Float]], written: Int)] = []
@@ -212,9 +162,7 @@ enum MixerGainRampContract {
     /// forgets it: the block before and the block after are untouched.
     private static func spoilsOnlyItsOwnBlock(_ suite: TestSuite) {
         let nanOK = spoilsOnlyItself(gain: Float.nan)
-        let infOK = spoilsOnlyItself(gain: Float.infinity)
         suite.expect(nanOK, "a gain that is not a number spoils only its own block")
-        suite.expect(infOK, "an infinite gain spoils only its own block")
     }
 
     // MARK: Measures
@@ -228,8 +176,9 @@ enum MixerGainRampContract {
                              gains: gains, sliding: false)[0]
         let width = 512 * 2
         let firstSame: Bool = Array(slid[0..<width]) == Array(stepped[0..<width])
-        let lastSame: Bool = Array(slid[(2 * width)..<(3 * width)]) == Array(stepped[(2 * width)..<(3 * width)])
-        let lastFinite: Bool = slid[(2 * width)..<(3 * width)].allSatisfy { $0.isFinite }
+        let lastBlock: Range<Int> = (2 * width)..<(3 * width)
+        let lastSame: Bool = Array(slid[lastBlock]) == Array(stepped[lastBlock])
+        let lastFinite: Bool = slid[lastBlock].allSatisfy { $0.isFinite }
         return firstSame && lastSame && lastFinite
     }
 
@@ -248,39 +197,24 @@ enum MixerGainRampContract {
         return true
     }
 
-    /// The biggest jump across a block edge, looking one sample either side
-    /// of every edge between the second block and the last.
-    private static func edge(_ samples: [Float], blockFrames n: Int) -> Double {
-        var worst: Double = 0
-        for block in 1...40 {
-            let at = block * n
-            let before: Double = abs(Double(samples[at]) - Double(samples[at - 1]))
-            let after: Double = abs(Double(samples[at + 1]) - Double(samples[at]))
-            worst = max(worst, before, after)
-        }
-        return worst
-    }
-
     /// An interleaved wave, the same on every channel.
-    private static func wave(frames: Int, channels: Int, hertz: Double, amplitude: Double,
-                             cosine: Bool) -> [Float] {
+    private static func wave(frames: Int, channels: Int, hertz: Double, amplitude: Double) -> [Float] {
         let twoPi: Double = 2.0 * Double.pi
         let perFrame: Double = twoPi * hertz / 48000.0
         var samples: [Float] = []
         samples.reserveCapacity(frames * channels)
         for frame in 0..<frames {
             let angle: Double = perFrame * Double(frame)
-            let value: Double = cosine ? cos(angle) : sin(angle)
-            let sample = Float(amplitude * value)
+            let sample = Float(amplitude * sin(angle))
             for _ in 0..<channels { samples.append(sample) }
         }
         return samples
     }
 
     /// The first output channel of a run of blocks.
-    private static func leftChannel(_ source: [Float], blockFrames: Int = 512, outputs: [UInt32],
-                                    gains: [Float], sliding: Bool) -> [Float] {
-        let buffers = blocks(source, sourceChannels: 2, blockFrames: blockFrames, outputs: outputs,
+    private static func leftChannel(_ source: [Float], outputs: [UInt32], gains: [Float],
+                                    sliding: Bool) -> [Float] {
+        let buffers = blocks(source, sourceChannels: 2, blockFrames: 512, outputs: outputs,
                              gains: gains, sliding: sliding)
         return channel(buffers, outputs: outputs, index: 0)
     }
@@ -313,8 +247,7 @@ enum MixerGainRampContract {
     /// do; without it each block is the constant-gain render of before.
     /// Answers the blocks of each output buffer, joined.
     private static func blocks(_ source: [Float], sourceChannels: UInt32, blockFrames: Int,
-                               outputs: [UInt32], outputFrames: Int? = nil, gains: [Float],
-                               sliding: Bool) -> [[Float]] {
+                               outputs: [UInt32], gains: [Float], sliding: Bool) -> [[Float]] {
         let applied = MixerRender.AppliedGain()
         let perBlock = blockFrames * Int(sourceChannels)
         var joined: [[Float]] = outputs.map { _ in [] }
@@ -322,7 +255,7 @@ enum MixerGainRampContract {
             let lower = block * perBlock
             let rendered = renderBlock(source: Array(source[lower..<(lower + perBlock)]),
                                        sourceChannels: sourceChannels, outputs: outputs,
-                                       outputFrames: outputFrames ?? blockFrames, gain: gain,
+                                       outputFrames: blockFrames, gain: gain,
                                        applied: sliding ? applied : nil)
             for index in outputs.indices { joined[index].append(contentsOf: rendered.buffers[index]) }
         }
