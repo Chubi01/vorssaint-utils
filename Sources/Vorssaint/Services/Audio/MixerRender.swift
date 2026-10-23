@@ -218,10 +218,10 @@ enum MixerRender {
     /// as one constant gain per block, so every slider or fader event stepped
     /// the waveform at a block edge and a drag sounded like a zipper.
     ///
-    /// A steady gain, an engine's first block and a gain that is not a number
+    /// A steady gain, an engine's first block and a gain that is not finite
     /// take the constant path, which is `render(source:into:gain:)` as it
     /// was: a steady volume plays the same samples as before, and a first
-    /// block has nothing to slide from. A gain that is not a number also
+    /// block has nothing to slide from. A gain that is not finite also
     /// forgets `applied`, so it spoils its own block and nothing after it.
     @discardableResult
     static func render(source: AudioBuffer,
@@ -240,10 +240,12 @@ enum MixerRender {
         return written
     }
 
-    /// The same three paths as `render(source:into:gain:)`, with the gain
-    /// moving from `start` to `target` over the frames it writes. vDSP leaves
-    /// each start value where its ramp ended, so every channel starts again
-    /// from the same `start`.
+    /// Three paths like `render(source:into:gain:)`, with the gain moving from
+    /// `start` to `target` over the frames it writes. The first takes only
+    /// stereo onto one stereo buffer; one channel to one and four to four go
+    /// through the per-channel loop, which routes them the same way. vDSP
+    /// leaves each start value where its ramp ended, so every channel starts
+    /// again from the same `start`.
     private static func renderSliding(source: AudioBuffer,
                                       into output: UnsafeMutableAudioBufferListPointer,
                                       from start: Float,

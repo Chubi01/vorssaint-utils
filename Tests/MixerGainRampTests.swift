@@ -23,10 +23,15 @@ enum MixerGainRampContract {
     // MARK: Checks
 
     /// A constant source makes the output the gain itself, so the slide can
-    /// be read sample by sample.
+    /// be read sample by sample. The block after a slide is read on its own
+    /// run, from 0.9801 to 1: that step is not a power of two, so vDSP ends
+    /// the ramp a hair away from 1, and only a state that kept the gain it
+    /// was given, not that end, lets the next block take the constant path.
     private static func slidesFromTheLastGain(_ suite: TestSuite) {
         let source = [Float](repeating: 1, count: 3 * 512 * 2)
         let gains: [Float] = [1, 0.5, 0.5]
+        let landing: [Float] = [0.9801, 1, 1]
+        let steady = [Float](repeating: 1, count: 512)
         let share: Double = 0.5 / 512
         let slack: Double = 1 + 1e-3
         let stepBound: Double = share * slack
@@ -34,10 +39,11 @@ enum MixerGainRampContract {
         for shape in shapes {
             let slid = leftChannel(source, outputs: shape.outputs, gains: gains, sliding: true)
             let stepped = leftChannel(source, outputs: shape.outputs, gains: gains, sliding: false)
+            let landed = leftChannel(source, outputs: shape.outputs, gains: landing, sliding: true)
             let startsFromLast: Bool = slid[512] == 1
             let stepsOneAtATime: Bool = maxStep(slid) <= stepBound
             let goesOneWay: Bool = neverRises(slid)
-            let afterSlide: Bool = Array(slid[1024..<1536]) == Array(stepped[1024..<1536])
+            let afterSlide: Bool = Array(landed[1024..<1536]) == steady
             let jumpsWhole: Bool = maxStep(stepped) >= 0.5
             suite.expect(startsFromLast,
                          "\(shape.name): a changed gain starts from the gain the last block ended on")
@@ -150,9 +156,11 @@ enum MixerGainRampContract {
         let downStepped = leftChannel(source, outputs: [2], gains: [1, 0, 0], sliding: false)
         let up = leftChannel(source, outputs: [2], gains: [0, 1, 1], sliding: true)
         let upStepped = leftChannel(source, outputs: [2], gains: [0, 1, 1], sliding: false)
-        let fadesOut: Bool = down[512] == 1 && down[1023] == 1.0 / 512
+        let lastDown: Float = 1.0 / 512
+        let lastUp: Float = 511.0 / 512
+        let fadesOut: Bool = down[512] == 1 && down[1023] == lastDown
         let silentAfter: Bool = Array(down[1024..<1536]) == Array(downStepped[1024..<1536])
-        let fadesIn: Bool = up[512] == 0 && up[1023] == 511.0 / 512
+        let fadesIn: Bool = up[512] == 0 && up[1023] == lastUp
         let playsAfter: Bool = Array(up[1024..<1536]) == Array(upStepped[1024..<1536])
         suite.expect(fadesOut, "a slide to silence fades over one block")
         suite.expect(silentAfter, "after a slide to silence the next block is silent")
@@ -181,7 +189,9 @@ enum MixerGainRampContract {
 
         let oneFrame = leftChannel(Array(source[0..<6]), blockFrames: 1, outputs: [2],
                                    gains: [1, 0.5, 0.5], sliding: true)
-        suite.expect(oneFrame == [1, 1, 0.5], "a one-frame block takes one step of the slide")
+        let oneFrameWanted: [Float] = [1, 1, 0.5]
+        let oneStep: Bool = oneFrame == oneFrameWanted
+        suite.expect(oneStep, "a one-frame block takes one step of the slide")
 
         let shortApplied = MixerRender.AppliedGain()
         var shortBlocks: [(buffers: [[Float]], written: Int)] = []
