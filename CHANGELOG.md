@@ -6,7 +6,37 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
-## [3.4.2]
+### Summary
+More reliable screenshots, audio and Dynamic Island, plus Stage Manager spacing, middle-button desktop gestures and improvements to clipboard history, Command Bar and monitoring.
+
+### Added
+- Window layout can reserve space for Stage Manager when maximizing or arranging windows, including the green-button override. Settings → Window layout → Reserve space for Stage Manager.
+- Switch Spaces by dragging a button now accepts the middle mouse button, including upward drags for Mission Control and downward drags for App Exposé. A short click keeps its normal behavior. Settings → Mouse → Mouse button shortcuts.
+
+### Changed
+- Command Bar accepts British unit spellings and spaced fluid-ounce names.
+- The window switcher's icon row, previews and hints use Liquid Glass when available and enabled.
+
+### Fixed
+- The menu bar panel no longer draws a second background with mismatched corners on macOS Sonoma and Sequoia.
+- Scrolling screenshots preserve the selected width, keep sparse Terminal output aligned and continue through smaller overlaps on long pages, including blank spacing and low-contrast content.
+- The cleaner leaves system log files out of app leftovers.
+- Command Bar handles extreme date offsets without crashing and keeps tiny non-temperature unit conversions from reading as zero.
+- Clipboard history ignores marked temporary content and restores the previous copy without another notice, while preserving ordinary copies and sensitive-text filtering.
+- Pinned GPU, temperature and fan menu bar readings follow the selected System monitor update interval.
+- Dynamic Island's full-screen hiding recognizes games whose windows cover the desktop without entering a separate full-screen space.
+- Dynamic Island's Hide content in full screen blocks hover opening again. Hidden until hover in full screen is a separate option under Settings → Dynamic Island → Behavior → Display.
+- Dynamic Island keeps slow Bluetooth discovery from blocking the interface and discards delayed connection alerts after sleep or when alerts are turned off.
+- Volume mixer recognizes headphones from their Core Audio device information, including models whose names do not say headphones.
+- Volume mixer leaves Discord and Teams audio untouched by default to prevent call echo when sharing audio. Their app menus can re-enable volume control, with a reminder to turn it off before sharing; saved levels and outputs are preserved.
+- Volume mixer no longer cuts off buffered sound or replays it late after short gaps in captured audio.
+- Screen recordings avoid loud noise from 16-bit USB microphones.
+- Screenshot area selection keeps its crosshair over other apps, and card shadows follow the captured window's own rounded corners.
+
+### Contributors
+Thanks to @0miicr0n, @AB-boi, @derpyjoystick, @DigitalWestern, @dimitarmanov, @globeatin, @Goonwb, @hash00, @ilvesBogdan, @Jacob-9909, @jainnam-1993, @JB-OD, @JeanBaeez, @Likheet, @LJXXXD, @muratozturk5, @oc7opu5, @raymondchins, @shlee0932-afk, @Spokplacenta, @stors789, @TarGz and @ygh1254.
+
+## [3.4.2] - 2026-10-21
 
 ### Summary
 A cleaner Dynamic Island, clearer updates, more flexible screenshots and clipboard history, and smoother everyday controls. This release also improves AI Agents, recordings and window switching, with many fixes.
@@ -16,7 +46,7 @@ A cleaner Dynamic Island, clearer updates, more flexible screenshots and clipboa
 - Dynamic Island can show the keyboard input source when it changes. Settings → Dynamic Island → Activity → Indicators.
 - Dynamic Island can open and close with a keyboard shortcut. Settings → Dynamic Island → Behavior → Opening.
 - Dynamic Island set to Hidden until hover can appear for activities, indicators and notifications, then hide again. Settings → Dynamic Island → Behavior → Opening → Show activity and indicators.
-- Dynamic Island can find covers for YouTube and YouTube Music in Firefox, Zen and other Firefox-based browsers. Settings → Dynamic Island → Content → Music → Find covers for Firefox and Zen.
+- Dynamic Island can find covers for YouTube and YouTube Music in Firefox, Zen and other Firefox-based browsers. Cover lookups stop when disabled and ignore outdated replies. Settings → Dynamic Island → Content → Music → Find covers for Firefox and Zen.
 - AI Agents can show limits for each separate Codex account. Settings → Dynamic Island → Content → AI Agents.
 - The screenshot editor adds Spotlight, canvas expansion and editable images pasted with Command-V; previews can copy text when Copy text from screen is installed.
 - Clipboard history can remove old items after a set number of days while keeping pinned items. Settings → Clipboard history → Keep items for.
